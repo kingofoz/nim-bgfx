@@ -381,7 +381,7 @@ proc triangulate*(vert_result: var ptr PosNormalColorVertex; stride: int; rgb: a
     let flags: uint16 = s_edges[cubeindex]
     var ii: uint16 = 0'u16
     while ii < 12'u16:
-        if (flags and (1'u16 shl ii)) == 1:
+        if (flags and (1'u16 shl ii)) != 0:
             let idx0: uint32 = ii and 7
             let idx1: uint32 = [
                 0x00000001'u32, 0x00000002'u32, 0x00000003'u32, 0x00000000'u32,
@@ -479,7 +479,7 @@ proc CleanUp(self: ExampleMetaball) =
 proc Update(self: ExampleMetaball) =
     const y_pitch = DIMS
     const z_pitch = DIMS*DIMS
-    const inv_dim = 1.0'f32/DIMS-1
+    const inv_dim = 1.0'f32/(FDIMS-1)
     let stride = cast[int](s_metaballVertices_Decl.GetStride())
 
     # Set view 0 default viewport
@@ -487,10 +487,9 @@ proc Update(self: ExampleMetaball) =
 
     var now = GetTime()
     var last {.global.} = GetTime()
-    let frameTime: float32 = now-last
-    var time = GetTime()
+    let frameTime: float32 =  now - last
     last = now
-    const toMs = 1000.0'f64
+    var time = now / 1e3       # slow down a bit
 
     # Use debug font to print information about this example.
     bgfx.DebugTextClear()
@@ -532,7 +531,7 @@ proc Update(self: ExampleMetaball) =
     var index = 0
     while index < num_spheres:
         let fii = float32(index)
-        let HDIM = DIMS*0.5'f32
+        let HDIM = FDIMS*0.5'f32
         sphere[index][0] = fpumath.fsin(time*(fii*0.21'f32)+fii*0.37'f32)*(HDIM-8.0'f32)
         sphere[index][1] = fpumath.fsin(time*(fii*0.37'f32)+fii*0.67'f32)*(HDIM-8.0'f32)
         sphere[index][2] = fpumath.fcos(time*(fii*0.11'f32)+fii*0.13'f32)*(HDIM-8.0'f32)
@@ -635,9 +634,8 @@ proc Update(self: ExampleMetaball) =
                     addr(self.m_grid[xoffset+1]),
                     addr(self.m_grid[xoffset])
                 ]
-                let num = triangulate(current_pos, stride, rgb, pos, val, 0.5'f32)
-                current_pos = cast[ptr PosNormalColorVertex](cast[ByteAddress](current_pos)+int(num))
-                num_vertices = num_vertices+int(num)
+                var vnum = triangulate(current_pos, stride, rgb, pos, val, 0.5'f32)
+                num_vertices = num_vertices+int(vnum)
                 xx = xx+1
             yy = yy+1
         zz = zz+1
@@ -657,13 +655,11 @@ proc Update(self: ExampleMetaball) =
     bgfx.Submit(0, self.m_program)
 
     bgfx.DebugTextPrintf(1, 4, 0x0f, "Num vertices: %5d (%6.4f%%)", num_vertices, num_vertices.toFloat()/max_vertices.toFloat()*100)
-    bgfx.DebugTextPrintf(1, 5, 0x0f, "      Update: % 7.3f[ms]", prof_update*toMs)
-    bgfx.DebugTextPrintf(1, 6, 0x0f, "Calc Normals: % 7.3f[ms]", prof_normal*toMs)
-    bgfx.DebugTextPrintf(1, 7, 0x0f, " Triangulate: % 7.3f[ms]", prof_triangulate*toMs)
-    bgfx.DebugTextPrintf(1, 8, 0x0f, "       Frame: %7.3f[ms]", frameTime*toMs);
-    bgfx.DebugTextPrintf(1, 9, 0x0f, "         FPS: %7.3f", 1.0'f32/frameTime);
-
-
+    bgfx.DebugTextPrintf(1, 5, 0x0f, "      Update: %7.3f[ms]", prof_update)
+    bgfx.DebugTextPrintf(1, 6, 0x0f, "Calc Normals: %7.3f[ms]", prof_normal)
+    bgfx.DebugTextPrintf(1, 7, 0x0f, " Triangulate: %7.3f[ms]", prof_triangulate)
+    bgfx.DebugTextPrintf(1, 8, 0x0f, "       Frame: %7.3f[ms]", frameTime)
+    bgfx.DebugTextPrintf(1, 9, 0x0f, "         FPS: %7.3f", 1000.0'f32/frameTime)
     bgfx.Frame()
 
 StartExample[ExampleMetaball]()
